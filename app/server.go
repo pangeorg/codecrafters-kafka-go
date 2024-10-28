@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
 	"os"
 )
@@ -18,6 +19,46 @@ func (r *KafkaResponse) Encode() []byte {
 	var buf bytes.Buffer
 	binary.Write(&buf, binary.BigEndian, r)
 	return buf.Bytes()
+}
+
+type TaggedFields struct{}
+
+type KafkaRequest struct {
+	MessageSize   int32
+	ApiKey        int16
+	ApiVersion    int16
+	CorrelationId int32
+	ClientId      *string
+	TaggedFields  *TaggedFields
+}
+
+func (r *KafkaRequest) Encode() []byte {
+	var buf bytes.Buffer
+	binary.Write(&buf, binary.BigEndian, r)
+	return buf.Bytes()
+}
+
+func ReadRequest(reader io.Reader) (KafkaRequest, error) {
+	var req = KafkaRequest{}
+	var l int
+	var r int
+
+	buf := make([]byte, 1024)
+	_, err := reader.Read(buf)
+	if err != nil {
+		return req, err
+	}
+
+	l, r = 0, binary.Size(req.MessageSize)
+	req.MessageSize = int32(binary.BigEndian.Uint32(buf[l:r]))
+	l, r = r, r+binary.Size(req.ApiKey)
+	req.ApiKey = int16(binary.BigEndian.Uint16(buf[l:r]))
+	l, r = r, r+binary.Size(req.ApiVersion)
+	req.ApiVersion = int16(binary.BigEndian.Uint16(buf[l:r]))
+	l, r = r, r+binary.Size(req.CorrelationId)
+	fmt.Printf("{%d} {%d}\n", l, r)
+	req.CorrelationId = int32(binary.BigEndian.Uint32(buf[l:r]))
+	return req, nil
 }
 
 func main() {
@@ -39,9 +80,16 @@ func main() {
 			os.Exit(1)
 		}
 		// rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+		req, err := ReadRequest(conn)
+		if err != nil {
+			fmt.Println("Error reading connection: ", err.Error())
+			os.Exit(1)
+		}
+		fmt.Println(req)
+
 		response := KafkaResponse{
 			MessageSize:   0,
-			CorrelationId: 7,
+			CorrelationId: req.CorrelationId,
 		}
 		encoded := response.Encode()
 		_, err = conn.Write(encoded)
@@ -50,6 +98,5 @@ func main() {
 			os.Exit(1)
 		}
 		conn.Close()
-
 	}
 }
