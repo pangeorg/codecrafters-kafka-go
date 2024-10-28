@@ -12,10 +12,10 @@ import (
 type KafkaResponse struct {
 	MessageSize   int32
 	CorrelationId int32
+	ErrorCode     int16
 }
 
 func (r *KafkaResponse) Encode() []byte {
-
 	var buf bytes.Buffer
 	binary.Write(&buf, binary.BigEndian, r)
 	return buf.Bytes()
@@ -56,8 +56,8 @@ func ReadRequest(reader io.Reader) (KafkaRequest, error) {
 	l, r = r, r+binary.Size(req.ApiVersion)
 	req.ApiVersion = int16(binary.BigEndian.Uint16(buf[l:r]))
 	l, r = r, r+binary.Size(req.CorrelationId)
-	fmt.Printf("{%d} {%d}\n", l, r)
 	req.CorrelationId = int32(binary.BigEndian.Uint32(buf[l:r]))
+	fmt.Println(req)
 	return req, nil
 }
 
@@ -85,12 +85,19 @@ func main() {
 			fmt.Println("Error reading connection: ", err.Error())
 			os.Exit(1)
 		}
-		fmt.Println(req)
+
+		var errorCode int16 = 0
+		fmt.Printf("Version %d", req.ApiVersion)
+		if (req.ApiVersion < 0) || (req.ApiVersion > 4) {
+			errorCode = 35
+		}
 
 		response := KafkaResponse{
 			MessageSize:   0,
 			CorrelationId: req.CorrelationId,
+			ErrorCode:     errorCode,
 		}
+
 		encoded := response.Encode()
 		_, err = conn.Write(encoded)
 		if err != nil {
