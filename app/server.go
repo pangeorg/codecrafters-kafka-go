@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"time"
 )
 
 type TaggedFields struct{}
@@ -17,9 +18,9 @@ type KafkaResponse interface {
 
 type KafkaRequestHeader struct {
 	MessageSize   int32
-	ApiKey        int16
-	ApiVersion    int16
-	CorrelationId int32
+	ApiKey        uint16
+	ApiVersion    uint16
+	CorrelationId uint32
 	ClientId      *string
 	TaggedFields  *TaggedFields
 }
@@ -64,7 +65,7 @@ func (r *KafkaApiVersionsResponse) Encode() []byte {
 	return buf
 }
 
-func CreateMessage(correlationId int32, message KafkaResponse) []byte {
+func CreateMessage(correlationId uint32, message KafkaResponse) []byte {
 	encoded := message.Encode()
 
 	headerBuf := make([]byte, 4+4)
@@ -81,61 +82,52 @@ func ReadRequest(reader io.Reader) (KafkaRequestHeader, error) {
 	if err != nil {
 		return req, err
 	}
-	err = binary.Read(reader, binary.BigEndian, &req.ApiKey)
-	if err != nil {
-		return req, err
-	}
-	err = binary.Read(reader, binary.BigEndian, &req.ApiVersion)
-	if err != nil {
-		return req, err
-	}
-	err = binary.Read(reader, binary.BigEndian, &req.CorrelationId)
-	if err != nil {
-		return req, err
-	}
+
+	binary.Read(reader, binary.BigEndian, &req.ApiKey)
+	binary.Read(reader, binary.BigEndian, &req.ApiVersion)
+	binary.Read(reader, binary.BigEndian, &req.CorrelationId)
 
 	return req, nil
 }
 
 func main() {
-	// You can use print statements as follows for debugging, they'll be visible when running tests.
-	fmt.Println("Logs from your program will appear here!")
-
-	// Uncomment this block to pass the first stage
-	//
 	l, err := net.Listen("tcp", "0.0.0.0:9092")
 	if err != nil {
 		fmt.Println("Failed to bind to port 9092")
 		os.Exit(1)
 	}
+	defer l.Close()
 
 	for {
 		conn, err := l.Accept()
-		defer conn.Close()
-
 		if err != nil {
 			fmt.Println("Error accepting connection: ", err.Error())
-			continue
+			os.Exit(1)
 		}
+		handleConnection(conn)
+	}
+}
 
+func handleConnection(conn net.Conn) {
+	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	defer conn.Close()
+
+	for {
 		req, err := ReadRequest(conn)
 		if err != nil {
 			fmt.Println("Error reading connection: ", err.Error())
-			continue
+			os.Exit(1)
 		}
 
+		fmt.Println("Correlation Id: ", req.CorrelationId)
+
+		var errorCode int16 = 0
 		if (req.ApiVersion < 0) || (req.ApiVersion > 4) {
-			errorResponse := KafkaErrorResponse{ErrorCode: 35}
-			response := CreateMessage(req.CorrelationId, &errorResponse)
-			_, err = conn.Write(response)
-			if err != nil {
-				fmt.Println("Error writing to connection: ", err.Error())
-				continue
-			}
+			errorCode = 35
 		}
 
 		versionRespone := KafkaApiVersionsResponse{
-			ErrorCode:        0,
+			ErrorCode:        errorCode,
 			NumApiKeys:       2,
 			ApiKey:           18,
 			ApiKeyMinVersion: 3,
@@ -150,8 +142,7 @@ func main() {
 		_, err = conn.Write(response)
 		if err != nil {
 			fmt.Println("Error writing to connection: ", err.Error())
-			continue
+			break
 		}
-
 	}
 }
