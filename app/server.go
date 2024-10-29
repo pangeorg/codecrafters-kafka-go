@@ -9,21 +9,13 @@ import (
 	"os"
 )
 
-type KafkaResponse struct {
-	MessageSize   int32
-	CorrelationId int32
-	ErrorCode     int16
-}
-
-func (r *KafkaResponse) Encode() []byte {
-	var buf bytes.Buffer
-	binary.Write(&buf, binary.BigEndian, r)
-	return buf.Bytes()
-}
-
 type TaggedFields struct{}
 
-type KafkaRequest struct {
+type KafkaResponse interface {
+	Encode() []byte
+}
+
+type KafkaRequestHeader struct {
 	MessageSize   int32
 	ApiKey        int16
 	ApiVersion    int16
@@ -32,32 +24,76 @@ type KafkaRequest struct {
 	TaggedFields  *TaggedFields
 }
 
-func (r *KafkaRequest) Encode() []byte {
+func (r *KafkaRequestHeader) Encode() []byte {
 	var buf bytes.Buffer
 	binary.Write(&buf, binary.BigEndian, r)
 	return buf.Bytes()
 }
 
-func ReadRequest(reader io.Reader) (KafkaRequest, error) {
-	var req = KafkaRequest{}
-	var l int
-	var r int
+type KafkaErrorResponse struct {
+	ErrorCode int16
+}
 
-	buf := make([]byte, 1024)
-	_, err := reader.Read(buf)
+func (r *KafkaErrorResponse) Encode() []byte {
+	buf := make([]byte, 2)
+	binary.BigEndian.PutUint16(buf, uint16(r.ErrorCode))
+	return buf
+}
+
+type KafkaApiVersionsResponse struct {
+	ErrorCode        int16
+	NumApiKeys       int8
+	ApiKey           int16
+	ApiKeyMinVersion int16
+	ApiKeyMaxVersion int16
+	TaggedFields1    *TaggedFields
+	ThrottleTimeMs   int32
+	TaggedFields2    *TaggedFields
+}
+
+func (r *KafkaApiVersionsResponse) Encode() []byte {
+	buf := make([]byte, 2+1+2+2+2+1+4+1)
+	binary.BigEndian.PutUint16(buf, uint16(r.ErrorCode))
+	buf[2] = byte(r.NumApiKeys)
+	binary.BigEndian.PutUint16(buf[3:], uint16(r.ApiKey))
+	binary.BigEndian.PutUint16(buf[5:], uint16(r.ApiKeyMinVersion))
+	binary.BigEndian.PutUint16(buf[7:], uint16(r.ApiKeyMaxVersion))
+	buf[9] = byte(0) // nil for tagged fields
+	binary.BigEndian.PutUint32(buf[10:], uint32(r.ThrottleTimeMs))
+	buf[14] = byte(0) // nil for tagged fields
+	return buf
+}
+
+func CreateMessage(correlationId int32, message KafkaResponse) []byte {
+	encoded := message.Encode()
+
+	headerBuf := make([]byte, 4+4)
+	binary.BigEndian.PutUint32(headerBuf, uint32(len(encoded)+4))
+	binary.BigEndian.PutUint32(headerBuf[4:], uint32(correlationId))
+
+	return append(headerBuf, encoded...)
+}
+
+func ReadRequest(reader io.Reader) (KafkaRequestHeader, error) {
+	var req = KafkaRequestHeader{}
+
+	err := binary.Read(reader, binary.BigEndian, &req.MessageSize)
+	if err != nil {
+		return req, err
+	}
+	err = binary.Read(reader, binary.BigEndian, &req.ApiKey)
+	if err != nil {
+		return req, err
+	}
+	err = binary.Read(reader, binary.BigEndian, &req.ApiVersion)
+	if err != nil {
+		return req, err
+	}
+	err = binary.Read(reader, binary.BigEndian, &req.CorrelationId)
 	if err != nil {
 		return req, err
 	}
 
-	l, r = 0, binary.Size(req.MessageSize)
-	req.MessageSize = int32(binary.BigEndian.Uint32(buf[l:r]))
-	l, r = r, r+binary.Size(req.ApiKey)
-	req.ApiKey = int16(binary.BigEndian.Uint16(buf[l:r]))
-	l, r = r, r+binary.Size(req.ApiVersion)
-	req.ApiVersion = int16(binary.BigEndian.Uint16(buf[l:r]))
-	l, r = r, r+binary.Size(req.CorrelationId)
-	req.CorrelationId = int32(binary.BigEndian.Uint32(buf[l:r]))
-	fmt.Println(req)
 	return req, nil
 }
 
@@ -73,37 +109,45 @@ func main() {
 		os.Exit(1)
 	}
 
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			fmt.Println("Error accepting connection: ", err.Error())
-			os.Exit(1)
-		}
-		// rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
-		req, err := ReadRequest(conn)
-		if err != nil {
-			fmt.Println("Error reading connection: ", err.Error())
-			os.Exit(1)
-		}
-
-		var errorCode int16 = 0
-		fmt.Printf("Version %d", req.ApiVersion)
-		if (req.ApiVersion < 0) || (req.ApiVersion > 4) {
-			errorCode = 35
-		}
-
-		response := KafkaResponse{
-			MessageSize:   0,
-			CorrelationId: req.CorrelationId,
-			ErrorCode:     errorCode,
-		}
-
-		encoded := response.Encode()
-		_, err = conn.Write(encoded)
-		if err != nil {
-			fmt.Println("Error writing to connection: ", err.Error())
-			os.Exit(1)
-		}
-		conn.Close()
+	conn, err := l.Accept()
+	if err != nil {
+		fmt.Println("Error accepting connection: ", err.Error())
+		os.Exit(1)
 	}
+
+	req, err := ReadRequest(conn)
+	if err != nil {
+		fmt.Println("Error reading connection: ", err.Error())
+		os.Exit(1)
+	}
+
+	if (req.ApiVersion < 0) || (req.ApiVersion > 4) {
+		errorResponse := KafkaErrorResponse{ErrorCode: 35}
+		response := CreateMessage(req.CorrelationId, &errorResponse)
+		fmt.Println("Unsupported api version: ", req.ApiVersion)
+		_, err = conn.Write(response)
+		conn.Close()
+		os.Exit(1)
+	}
+
+	versionRespone := KafkaApiVersionsResponse{
+		ErrorCode:        0,
+		NumApiKeys:       2,
+		ApiKey:           18,
+		ApiKeyMinVersion: 3,
+		ApiKeyMaxVersion: 4,
+		TaggedFields1:    nil,
+		ThrottleTimeMs:   0,
+		TaggedFields2:    nil,
+	}
+
+	response := CreateMessage(req.CorrelationId, &versionRespone)
+
+	_, err = conn.Write(response)
+	if err != nil {
+		fmt.Println("Error writing to connection: ", err.Error())
+		os.Exit(1)
+	}
+
+	conn.Close()
 }
