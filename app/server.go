@@ -119,8 +119,6 @@ func handleConnection(conn net.Conn) {
 			os.Exit(1)
 		}
 
-		fmt.Println("Correlation Id: ", req.CorrelationId)
-
 		var errorCode int16 = 0
 		if (req.ApiVersion < 0) || (req.ApiVersion > 4) {
 			errorCode = 35
