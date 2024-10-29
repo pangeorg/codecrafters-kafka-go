@@ -109,45 +109,49 @@ func main() {
 		os.Exit(1)
 	}
 
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
-	}
+	for {
+		conn, err := l.Accept()
+		defer conn.Close()
 
-	req, err := ReadRequest(conn)
-	if err != nil {
-		fmt.Println("Error reading connection: ", err.Error())
-		os.Exit(1)
-	}
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			continue
+		}
 
-	if (req.ApiVersion < 0) || (req.ApiVersion > 4) {
-		errorResponse := KafkaErrorResponse{ErrorCode: 35}
-		response := CreateMessage(req.CorrelationId, &errorResponse)
-		fmt.Println("Unsupported api version: ", req.ApiVersion)
+		req, err := ReadRequest(conn)
+		if err != nil {
+			fmt.Println("Error reading connection: ", err.Error())
+			continue
+		}
+
+		if (req.ApiVersion < 0) || (req.ApiVersion > 4) {
+			errorResponse := KafkaErrorResponse{ErrorCode: 35}
+			response := CreateMessage(req.CorrelationId, &errorResponse)
+			_, err = conn.Write(response)
+			if err != nil {
+				fmt.Println("Error writing to connection: ", err.Error())
+				continue
+			}
+		}
+
+		versionRespone := KafkaApiVersionsResponse{
+			ErrorCode:        0,
+			NumApiKeys:       2,
+			ApiKey:           18,
+			ApiKeyMinVersion: 3,
+			ApiKeyMaxVersion: 4,
+			TaggedFields1:    nil,
+			ThrottleTimeMs:   0,
+			TaggedFields2:    nil,
+		}
+
+		response := CreateMessage(req.CorrelationId, &versionRespone)
+
 		_, err = conn.Write(response)
-		conn.Close()
-		os.Exit(1)
+		if err != nil {
+			fmt.Println("Error writing to connection: ", err.Error())
+			continue
+		}
+
 	}
-
-	versionRespone := KafkaApiVersionsResponse{
-		ErrorCode:        0,
-		NumApiKeys:       2,
-		ApiKey:           18,
-		ApiKeyMinVersion: 3,
-		ApiKeyMaxVersion: 4,
-		TaggedFields1:    nil,
-		ThrottleTimeMs:   0,
-		TaggedFields2:    nil,
-	}
-
-	response := CreateMessage(req.CorrelationId, &versionRespone)
-
-	_, err = conn.Write(response)
-	if err != nil {
-		fmt.Println("Error writing to connection: ", err.Error())
-		os.Exit(1)
-	}
-
-	conn.Close()
 }
