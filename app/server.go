@@ -21,8 +21,13 @@ type KafkaRequestHeader struct {
 	ApiKey        uint16
 	ApiVersion    uint16
 	CorrelationId uint32
-	ClientId      *string
-	TaggedFields  *TaggedFields
+}
+
+func (header *KafkaRequestHeader) Print() {
+	fmt.Println("Message Size: ", header.MessageSize)
+	fmt.Println("Api Key: ", header.ApiKey)
+	fmt.Println("Api Version: ", header.ApiVersion)
+	fmt.Println("CorrelationId: ", header.CorrelationId)
 }
 
 func (r *KafkaRequestHeader) Encode() []byte {
@@ -69,25 +74,34 @@ func CreateMessage(correlationId uint32, message KafkaResponse) []byte {
 	encoded := message.Encode()
 
 	headerBuf := make([]byte, 4+4)
-	binary.BigEndian.PutUint32(headerBuf, uint32(len(encoded)+4))
-	binary.BigEndian.PutUint32(headerBuf[4:], uint32(correlationId))
+
+	messageSize := uint32(len(encoded) + 4)
+	fmt.Println("size: ", messageSize)
+	binary.BigEndian.PutUint32(headerBuf, messageSize)
+
+	fmt.Println("Response id: ", correlationId)
+	binary.BigEndian.PutUint32(headerBuf[4:], correlationId)
 
 	return append(headerBuf, encoded...)
 }
 
 func ReadRequest(reader io.Reader) (KafkaRequestHeader, error) {
+	buf := make([]byte, 512)
 	var req = KafkaRequestHeader{}
 
-	err := binary.Read(reader, binary.BigEndian, &req.MessageSize)
-	if err != nil {
-		return req, err
-	}
-
-	binary.Read(reader, binary.BigEndian, &req.ApiKey)
-	binary.Read(reader, binary.BigEndian, &req.ApiVersion)
-	binary.Read(reader, binary.BigEndian, &req.CorrelationId)
+	reader.Read(buf)
+	req.MessageSize = int32(binary.BigEndian.Uint32(buf))
+	req.ApiKey = binary.BigEndian.Uint16(buf[4:])
+	req.ApiVersion = binary.BigEndian.Uint16(buf[6:])
+	req.CorrelationId = binary.BigEndian.Uint32(buf[8:])
 
 	return req, nil
+}
+
+func ReadRequestBytes(reader io.Reader) ([]byte, error) {
+	req := make([]byte, 512)
+	_, err := reader.Read(req)
+	return req, err
 }
 
 func main() {
@@ -96,7 +110,14 @@ func main() {
 		fmt.Println("Failed to bind to port 9092")
 		os.Exit(1)
 	}
-	defer l.Close()
+
+	defer func(listener net.Listener) {
+		err := listener.Close()
+		if err != nil {
+			fmt.Println("Failed to close listener")
+			os.Exit(1)
+		}
+	}(l)
 
 	for {
 		conn, err := l.Accept()
@@ -109,13 +130,23 @@ func main() {
 }
 
 func handleConnection(conn net.Conn) {
-	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-	defer conn.Close()
+	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	defer func(conn net.Conn) {
+		fmt.Println("Closing connection: ", conn.RemoteAddr())
+		err := conn.Close()
+		if err != nil {
+			fmt.Println("Error closing connection: ", err.Error())
+			os.Exit(1)
+		}
 
-	for {
+	}(conn)
+
+	run := true
+	for run {
+		fmt.Println("Reading request from conn: ", conn.RemoteAddr())
 		req, err := ReadRequest(conn)
 		if err != nil {
-			fmt.Println("Error reading connection: ", err.Error())
+			fmt.Println("Error reading request: ", err.Error())
 			os.Exit(1)
 		}
 
@@ -134,13 +165,13 @@ func handleConnection(conn net.Conn) {
 			ThrottleTimeMs:   0,
 			TaggedFields2:    nil,
 		}
-
+		//
 		response := CreateMessage(req.CorrelationId, &versionRespone)
 
 		_, err = conn.Write(response)
 		if err != nil {
 			fmt.Println("Error writing to connection: ", err.Error())
-			break
+			run = false
 		}
 	}
 }

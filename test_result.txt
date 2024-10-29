@@ -1,0 +1,122 @@
+Initiating test run...
+
+[33m⏳ Turbo test runners busy. You are in queue.[0m
+[33m[0m
+[33mUpgrade to skip the wait: https://codecrafters.io/turbo[0m
+
+Running tests. Logs should appear shortly...
+
+[33m[compile][0m Moved ./.codecrafters/run.sh → ./your_program.sh
+[33m[compile][0m [32mCompilation successful.[0m
+
+Debug = true
+
+[33m[tester::#NH4] [0m[94mRunning tests for Stage #NH4 (Concurrent Clients - Serial requests)[0m
+[33m[tester::#NH4] [0m[94m$ ./your_program.sh /tmp/server.properties[0m
+[33m[tester::#NH4] [0m[36mConnecting to broker at: localhost:9092[0m
+[33m[tester::#NH4] [0m[36mConnection to broker at localhost:9092 successful[0m
+[33m[tester::#NH4] [0m[94mSending request 1 of 3: "ApiVersions" (version: 4) request (Correlation id: 654934899)[0m
+[33m[tester::#NH4] [0m[36mHexdump of sent "ApiVersions" request: [0m
+[33m[tester::#NH4] [0m[36mIdx  | Hex                                             | ASCII[0m
+[33m[tester::#NH4] [0m[36m-----+-------------------------------------------------+-----------------[0m
+[33m[tester::#NH4] [0m[36m0000 | 00 00 00 23 00 12 00 04 27 09 83 73 00 09 6b 61 | ...#....'..s..ka[0m
+[33m[tester::#NH4] [0m[36m0010 | 66 6b 61 2d 63 6c 69 00 0a 6b 61 66 6b 61 2d 63 | fka-cli..kafka-c[0m
+[33m[tester::#NH4] [0m[36m0020 | 6c 69 04 30 2e 31 00                            | li.0.1.[0m
+[33m[tester::#NH4] [0m[36m[0m
+[33m[your_program] [0mReading request from conn:  [::1]:39060
+[33m[your_program] [0mMessage Size:  35
+[33m[your_program] [0mApi Key:  18
+[33m[your_program] [0mApi Version:  4
+[33m[your_program] [0mCorrelationId:  654934899
+[33m[your_program] [0mReponse id:  654934899
+[33m[your_program] [0mReading request from conn:  [::1]:39060
+[33m[your_program] [0mMessage Size:  617313
+[33m[your_program] [0mApi Key:  26219
+[33m[your_program] [0mApi Version:  24877
+[33m[your_program] [0mCorrelationId:  1668049152
+[33m[your_program] [0mReponse id:  1668049152
+[33m[your_program] [0mReading request from conn:  [::1]:39060
+[33m[your_program] [0mMessage Size:  174809446
+[33m[your_program] [0mApi Key:  27489
+[33m[your_program] [0mApi Version:  11619
+[33m[your_program] [0mCorrelationId:  1818821680
+[33m[your_program] [0mReponse id:  1818821680
+[33m[your_program] [0mReading request from conn:  [::1]:39060
+[33m[tester::#NH4] [0m[36mHexdump of received "ApiVersions" response: [0m
+[33m[tester::#NH4] [0m[36mIdx  | Hex                                             | ASCII[0m
+[33m[tester::#NH4] [0m[36m-----+-------------------------------------------------+-----------------[0m
+[33m[tester::#NH4] [0m[36m0000 | 27 09 83 73 00 00 02 00 12 00 03 00 04 00 00 00 | '..s............[0m
+[33m[tester::#NH4] [0m[36m0010 | 00 00 00                                        | ...[0m
+[33m[tester::#NH4] [0m[36m[0m
+[33m[tester::#NH4] [Decoder] [0m[36m- .ResponseHeader[0m
+[33m[tester::#NH4] [Decoder] [0m[36m  - .correlation_id (654934899)[0m
+[33m[tester::#NH4] [Decoder] [0m[36m- .ResponseBody[0m
+[33m[tester::#NH4] [Decoder] [0m[36m  - .error_code (0)[0m
+[33m[tester::#NH4] [Decoder] [0m[36m  - .num_api_keys (1)[0m
+[33m[tester::#NH4] [Decoder] [0m[36m  - .ApiKeys[0][0m
+[33m[tester::#NH4] [Decoder] [0m[36m    - .api_key (18)[0m
+[33m[tester::#NH4] [Decoder] [0m[36m    - .min_version (3)[0m
+[33m[tester::#NH4] [Decoder] [0m[36m    - .max_version (4)[0m
+[33m[tester::#NH4] [Decoder] [0m[36m    - .TAG_BUFFER[0m
+[33m[tester::#NH4] [Decoder] [0m[36m  - .throttle_time_ms (0)[0m
+[33m[tester::#NH4] [Decoder] [0m[36m  - .TAG_BUFFER[0m
+[33m[tester::#NH4] [0m[92m✓ Correlation ID: 654934899[0m
+[33m[tester::#NH4] [0m[92m✓ Error code: 0 (NO_ERROR)[0m
+[33m[tester::#NH4] [0m[92m✓ API keys array is non-empty[0m
+[33m[tester::#NH4] [0m[92m✓ API version 4 is supported for API_VERSIONS[0m
+[33m[tester::#NH4] [0m[92m✓ Test 1 of 3: Passed[0m
+[33m[tester::#NH4] [0m[94mSending request 2 of 3: "ApiVersions" (version: 4) request (Correlation id: 864248180)[0m
+[33m[tester::#NH4] [0m[36mHexdump of sent "ApiVersions" request: [0m
+[33m[tester::#NH4] [0m[36mIdx  | Hex                                             | ASCII[0m
+[33m[tester::#NH4] [0m[36m-----+-------------------------------------------------+-----------------[0m
+[33m[tester::#NH4] [0m[36m0000 | 00 00 00 23 00 12 00 04 33 83 61 74 00 09 6b 61 | ...#....3.at..ka[0m
+[33m[tester::#NH4] [0m[36m0010 | 66 6b 61 2d 63 6c 69 00 0a 6b 61 66 6b 61 2d 63 | fka-cli..kafka-c[0m
+[33m[tester::#NH4] [0m[36m0020 | 6c 69 04 30 2e 31 00                            | li.0.1.[0m
+[33m[tester::#NH4] [0m[36m[0m
+[33m[tester::#NH4] [0m[36mHexdump of received "ApiVersions" response: [0m
+[33m[tester::#NH4] [0m[36mIdx  | Hex                                             | ASCII[0m
+[33m[tester::#NH4] [0m[36m-----+-------------------------------------------------+-----------------[0m
+[33m[tester::#NH4] [0m[36m0000 | 63 6c 69 00 00 23 02 00 12 00 03 00 04 00 00 00 | cli..#..........[0m
+[33m[tester::#NH4] [0m[36m0010 | 00 00 00                                        | ...[0m
+[33m[tester::#NH4] [0m[36m[0m
+[33m[tester::#NH4] [Decoder] [0m[36m- .ResponseHeader[0m
+[33m[tester::#NH4] [Decoder] [0m[36m  - .correlation_id (1668049152)[0m
+[33m[tester::#NH4] [Decoder] [0m[36m- .ResponseBody[0m
+[33m[tester::#NH4] [Decoder] [0m[36m  - .error_code (35)[0m
+[33m[tester::#NH4] [Decoder] [0m[36m  - .num_api_keys (1)[0m
+[33m[tester::#NH4] [Decoder] [0m[36m  - .ApiKeys[0][0m
+[33m[tester::#NH4] [Decoder] [0m[36m    - .api_key (18)[0m
+[33m[tester::#NH4] [Decoder] [0m[36m    - .min_version (3)[0m
+[33m[tester::#NH4] [Decoder] [0m[36m    - .max_version (4)[0m
+[33m[tester::#NH4] [Decoder] [0m[36m    - .TAG_BUFFER[0m
+[33m[tester::#NH4] [Decoder] [0m[36m  - .throttle_time_ms (0)[0m
+[33m[tester::#NH4] [Decoder] [0m[36m  - .TAG_BUFFER[0m
+[33m[tester::#NH4] [0m[91mExpected Correlation ID to be 864248180, got 1668049152[0m
+[33m[tester::#NH4] [0m[91mTest failed[0m
+[33m[tester::#NH4] [0m[36mTerminating program[0m
+[33m[your_program] [0mMessage Size:  774963200
+[33m[your_program] [0mApi Key:  0
+[33m[your_program] [0mApi Version:  8960
+[33m[your_program] [0mCorrelationId:  301990963
+[33m[your_program] [0mReponse id:  301990963
+[33m[your_program] [0mReading request from conn:  [::1]:39060
+[33m[your_program] [0mMessage Size:  -2090765312
+[33m[your_program] [0mApi Key:  2411
+[33m[your_program] [0mApi Version:  24934
+[33m[your_program] [0mCorrelationId:  1801530723
+[33m[your_program] [0mReponse id:  1801530723
+[33m[your_program] [0mReading request from conn:  [::1]:39060
+[33m[your_program] [0mMessage Size:  1818820618
+[33m[your_program] [0mApi Key:  27489
+[33m[your_program] [0mApi Version:  26219
+[33m[your_program] [0mCorrelationId:  1630364524
+[33m[your_program] [0mReponse id:  1630364524
+[33m[your_program] [0mReading request from conn:  [::1]:39060
+[33m[your_program] [0mMessage Size:  1761882158
+[33m[your_program] [0mApi Key:  12544
+[33m[your_program] [0mApi Version:  0
+[33m[your_program] [0mCorrelationId:  0
+[33m[your_program] [0mReponse id:  0
+[33m[tester::#NH4] [0m[36mProgram terminated successfully[0m
+
+View our article on debugging test failures: https://codecrafters.io/debug
