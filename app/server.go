@@ -16,6 +16,22 @@ type KafkaResponse interface {
 	Encode() []byte
 }
 
+type KafakaApiKey struct {
+	ApiKey     uint16
+	MinVersion uint16
+	MaxVersion uint16
+	TagBuf     uint8
+}
+
+func (r *KafakaApiKey) Encode() []byte {
+	buf := make([]byte, 2+2+2+1)
+	binary.BigEndian.PutUint16(buf, r.ApiKey)
+	binary.BigEndian.PutUint16(buf[2:], r.MinVersion)
+	binary.BigEndian.PutUint16(buf[4:], r.MaxVersion)
+	buf[6] = byte(0)
+	return buf
+}
+
 type KafkaRequestHeader struct {
 	MessageSize   int32
 	ApiKey        uint16
@@ -47,27 +63,33 @@ func (r *KafkaErrorResponse) Encode() []byte {
 }
 
 type KafkaApiVersionsResponse struct {
-	ErrorCode        int16
-	NumApiKeys       int8
-	ApiKey           int16
-	ApiKeyMinVersion int16
-	ApiKeyMaxVersion int16
-	TaggedFields1    *TaggedFields
-	ThrottleTimeMs   int32
-	TaggedFields2    *TaggedFields
+	ErrorCode      int16
+	NumApiKeys     int8
+	ApiKeys        []KafakaApiKey
+	ThrottleTimeMs int32
 }
 
 func (r *KafkaApiVersionsResponse) Encode() []byte {
-	buf := make([]byte, 2+1+2+2+2+1+4+1)
-	binary.BigEndian.PutUint16(buf, uint16(r.ErrorCode))
-	buf[2] = byte(r.NumApiKeys)
-	binary.BigEndian.PutUint16(buf[3:], uint16(r.ApiKey))
-	binary.BigEndian.PutUint16(buf[5:], uint16(r.ApiKeyMinVersion))
-	binary.BigEndian.PutUint16(buf[7:], uint16(r.ApiKeyMaxVersion))
-	buf[9] = byte(0) // nil for tagged fields
-	binary.BigEndian.PutUint32(buf[10:], uint32(r.ThrottleTimeMs))
-	buf[14] = byte(0) // nil for tagged fields
-	return buf
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.BigEndian, r.ErrorCode)
+	binary.Write(buf, binary.BigEndian, r.NumApiKeys+1)
+	for _, k := range r.ApiKeys {
+		err := binary.Write(buf, binary.BigEndian, k)
+		if err != nil {
+			return []byte{}
+		}
+	}
+	binary.Write(buf, binary.BigEndian, uint32(r.ThrottleTimeMs))
+	binary.Write(buf, binary.BigEndian, int8(0)) // tag buf
+	return buf.Bytes()
+}
+
+func MakeApiVersionsResponse(errorCode int16, throttleTime int32, apiKeys ...KafakaApiKey) KafkaApiVersionsResponse {
+	return KafkaApiVersionsResponse{
+		ErrorCode:      errorCode,
+		ThrottleTimeMs: throttleTime,
+		NumApiKeys:     int8(len(apiKeys)),
+		ApiKeys:        apiKeys}
 }
 
 func CreateMessage(correlationId uint32, message KafkaResponse) []byte {
@@ -155,17 +177,13 @@ func handleConnection(conn net.Conn) {
 			errorCode = 35
 		}
 
-		versionRespone := KafkaApiVersionsResponse{
-			ErrorCode:        errorCode,
-			NumApiKeys:       2,
-			ApiKey:           18,
-			ApiKeyMinVersion: 3,
-			ApiKeyMaxVersion: 4,
-			TaggedFields1:    nil,
-			ThrottleTimeMs:   0,
-			TaggedFields2:    nil,
-		}
-		//
+		versionRespone := MakeApiVersionsResponse(
+			errorCode, 0,
+			KafakaApiKey{ApiKey: 18, MinVersion: 4, MaxVersion: 4},  // version request
+			KafakaApiKey{ApiKey: 1, MinVersion: 16, MaxVersion: 16}, // fetch Request
+			KafakaApiKey{ApiKey: 75, MinVersion: 0, MaxVersion: 0},  // fetch Request
+		)
+
 		response := CreateMessage(req.CorrelationId, &versionRespone)
 
 		_, err = conn.Write(response)
